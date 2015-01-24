@@ -1,0 +1,148 @@
+---
+title: "Practical Machine Learning Project"
+author: "AJ Hess"
+date: "Thursday, January 22, 2015"
+output: html_document
+---
+
+####Background Information
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: [http://groupware.les.inf.puc-rio.br/har] (see the section on the Weight Lifting Exercise Dataset).  
+
+####Data Sources
+
+*The training data for this project are available here*:  
+[https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv]  
+
+*The test data are available here*:   
+[https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv]
+
+The data for this project come from this source: [http://groupware.les.inf.puc-rio.br/har]. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.  
+
+####Data Preparation
+
+Below we'll load necessary libraries to perform the analysis, load the data and clean up the data by removing any missing values.  
+
+
+```{r, message=FALSE, warning=FALSE}
+#load needed libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(e1071)
+
+#set seed
+set.seed(140819)
+
+# Read in the training and testing data 
+
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+training <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+
+#create testing and training set
+inTrain <- createDataPartition(y=training$classe, p=0.6, list=FALSE)
+myTraining <- training[inTrain, ]; myTesting <- training[-inTrain, ]
+dim(myTraining); dim(myTesting)
+
+
+# Function to filter the features
+
+##remove features with any missing data
+filterData <- function(idf) {
+# Since we have lots of variables, remove any with NA's or have empty strings
+  idx.keep <- !sapply(idf, function(x) any(is.na(x)))
+  idf <- idf[, idx.keep]
+  idx.keep <- !sapply(idf, function(x) any(x==""))
+  idf <- idf[, idx.keep]
+
+#Remove the columns that aren't the predictor variables
+  col.rm <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+              "cvtd_timestamp", "new_window", "num_window")
+  idx.rm <- which(colnames(idf) %in% col.rm)
+  idf <- idf[, -idx.rm]
+  
+  return(idf)
+}
+  
+# Perform the filtering on the datasets
+myTraining <- filterData(myTraining)
+myTraining$classe <- factor(myTraining$classe)
+myTesting <- filterData(myTesting)
+
+dim(myTraining); dim(myTesting)
+```
+
+####Creating the Model - Decision Tree
+
+Now we build a model and view the output using the Decision Tree algorithm
+
+```{r, message=FALSE, warning=FALSE, fig.height=7, fig.width=7}
+
+#now create the model
+modFitA1 <- rpart(classe ~ ., data=myTraining, method="class")
+#and view the decision tree
+fancyRpartPlot(modFitA1)
+
+```
+
+Now we want to try predicting using the test dataset we created earlier, and use a confusion matrix to test the results  
+
+```{r, message=FALSE, warning=FALSE, fig.height=7, fig.width=7}
+
+#try prediction with testing dataset
+predictionsA1 <- predict(modFitA1, myTesting, type = "class")
+
+#create confusion matrix to test the results
+confusionMatrix(predictionsA1, myTesting$classe)
+
+```
+
+####Creating the Model - Random Forest
+
+Now we build a model and view the output using the Random Forest algorithm
+
+```{r, message=FALSE, warning=FALSE, fig.height=7, fig.width=7}
+
+#create the model
+modFitB1 <- randomForest(classe ~. , data=myTraining)
+
+#try prediction with testing dataset
+predictionsB1 <- predict(modFitB1, myTesting, type = "class")
+
+#create the confusion matrix to test the results
+confusionMatrix(predictionsB1, myTesting$classe)
+
+```
+
+**Comparing the two models, we see that Random Forests yeilded better results**  
+
+Now we want to use the test set to check out of sample error.  
+
+We use random forest since that gave use the best prediction in-sample, and see how this compares to out of sample data, and generate files using code prvoded in the instructions.  
+
+
+```{r, message=FALSE, warning=FALSE, fig.height=7, fig.width=7}
+
+predictionsB2 <- predict(modFitB1, testing, type = "class")
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(predictionsB2)
+
+```
+
+
+
+
+
