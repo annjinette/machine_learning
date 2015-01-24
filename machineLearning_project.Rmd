@@ -81,7 +81,7 @@ dim(myTraining); dim(myTesting)
 
 Now we build a model and view the output using the Decision Tree algorithm
 
-```{r, message=FALSE, warning=FALSE, fig.height=7, fig.width=7}
+```{r, message=FALSE, warning=FALSE, fig.height=15, fig.width=15}
 
 #now create the model
 modFitA1 <- rpart(classe ~ ., data=myTraining, method="class")
